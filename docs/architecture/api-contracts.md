@@ -21,7 +21,7 @@ Access markers: **[public]** — anonymous allowed in production (signed-in view
 No stack traces, provider secrets, storage keys, coordinates or internal messages.
 
 ## Health
-- `GET /healthz`, `GET /readyz` [public]
+- `GET /healthz`, `GET /readyz` [public] — served at the root, outside the `/api/v1` base path (infrastructure probes)
 
 ## Identity
 - `POST /auth/register` [public] — disabled in staging; requires an invite code where invite-only access is enabled

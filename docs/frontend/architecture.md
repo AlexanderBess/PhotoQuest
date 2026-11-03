@@ -5,7 +5,7 @@
 - Vue 3, TypeScript strict mode, Vite
 - Vue Router
 - Pinia only where shared client state is genuinely needed
-- An i18n library (candidate: `vue-i18n`; confirm in PQ-002, D-17)
+- Vue I18n (Composition API mode), with locale messages precompiled at build time so the runtime needs no message compiler (strict CSP, PQ-054b)
 - Images from signed URLs; if an image fails after a long-open page, reload that item's data once to get fresh URLs
 - A map library behind an adapter (provider decision D-06)
 - Feature-Sliced Design (FSD), applied pragmatically
@@ -62,11 +62,11 @@ Auth-required actions on public pages (save, report, publish) open sign-in and r
 
 - Russian (`ru`) is the default and only shipped locale in the pilot; fallback locale `ru`.
 - Locale messages live in `shared/i18n/locales/<locale>/` split by area (common, feed, explore, publish, shooting-details, learning, errors, admin).
-- No hard-coded user-facing strings in components; a lint/check for raw strings in templates is added in PQ-004 if practical.
-- Use Russian plural rules for counts (e.g. "1 фотография / 2 фотографии / 5 фотографий").
-- Dates, numbers and units via `Intl` with the active locale. Shooting Details formatting (f/2.8, 1/250 s, ISO 400, focal length) lives in one formatter in `entities/shooting-details`, with localisable unit labels.
+- No hard-coded user-facing strings in components. From PQ-002 the ESLint rule `vue/no-bare-strings-in-template` catches bare strings in templates. Missing-key validation and CI enforcement of both checks are separate and are added in PQ-004.
+- Use CLDR plural rules via `Intl.PluralRules` (Russian: one / few / many / other; fractions use `other`), e.g. "1 фотография / 2 фотографии / 5 фотографий / 1,5 фотографии".
+- Dates, numbers and units via `Intl` with the active locale, exposed through Vue I18n's datetime/number formats (`d`, `n`) and shared formatters. Shooting Details formatting (f/2.8, 1/250 s, ISO 400, focal length) lives in one formatter in `entities/shooting-details`, with localisable unit labels.
 - API error `code`s map to localised messages; the frontend never shows raw server messages.
-- Adding English = adding an `en` locale folder + a language switcher; no component changes.
+- The language switcher is one shared, reusable component that lists the registered locales. Adding English or another language = adding its locale folder and registering the locale; no new switcher and no changes to individual components.
 - Editorial content (locations, lessons) is Russian-only in the MVP and is not part of UI i18n.
 
 ## API client
@@ -107,7 +107,7 @@ Auth-required actions on public pages (save, report, publish) open sign-in and r
 
 The app is a SPA. Link previews (Open Graph) and search indexing of public photo/location pages require server-rendered or pre-rendered metadata; this is decision D-18 and is not assumed.
 
-**Staging:** the SPA shell includes `<meta name="robots" content="noindex">` (driven by environment configuration), registration UI is replaced by invite redemption, and the site sits behind the access gate. Production configuration must not inherit these flags.
+**Staging:** the SPA shell includes `<meta name="robots" content="noindex, nofollow">` (set by the build-time flag `VITE_ROBOTS_NOINDEX`; staging and production are separate builds), registration UI is replaced by invite redemption, and the site sits behind the access gate. Production configuration must not inherit these flags.
 
 ## Testing priorities
 

@@ -41,7 +41,7 @@ The MVP is deliberately narrow and is built in vertical slices S0–S5 (`docs/an
 ### Backend
 - Go, PostgreSQL, REST API documented with OpenAPI
 - Database migrations
-- Background worker process (same binary as the API) using a PostgreSQL **transactional job queue** (`platform.jobs`, ADR-005, ADR-022)
+- Background worker process (same codebase and Docker image as the API, separate `cmd/worker` entry point) using a PostgreSQL **transactional job queue** (`platform.jobs`, ADR-005, ADR-022)
 
 ### Infrastructure
 - Docker Compose for local development

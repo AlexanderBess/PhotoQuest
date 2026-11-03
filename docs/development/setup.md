@@ -1,13 +1,14 @@
 # Development Setup
 
-This document will be completed as the toolchain is selected and implemented in Phase 0 (PQ-002 – PQ-007).
+This document will be completed as the toolchain is selected and implemented in slices S0–S1 (PQ-002 – PQ-007).
 
 ## Prerequisites
 
 - Git
-- Go (version pinned in `go.mod` and CI)
-- Node.js LTS (version pinned in `.nvmrc` or equivalent)
-- One package manager (npm or pnpm — chosen in PQ-002) with a committed lockfile
+- Go 1.27.x. PQ-002 adds `backend/go.mod` with a `go 1.27` directive (minimum Go version required by the module) and a `toolchain` line naming the exact patch release; the `toolchain` line names the suggested toolchain for this main module; with the default `GOTOOLCHAIN=auto`, Go 1.21 or newer downloads and switches to it when the local toolchain is older. The CI Go version is pinned separately in PQ-004.
+- Node.js 26 LTS (version pinned in `.node-version`, added in PQ-002)
+- pnpm with a committed lockfile; the exact version is pinned in the `packageManager` field (added in PQ-002). Node 25+ no longer bundles Corepack, so pnpm is installed separately.
+- Task (go-task) for root-level commands
 - Docker and Docker Compose
 
 ## Expected local services

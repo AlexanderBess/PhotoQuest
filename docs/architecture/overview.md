@@ -2,7 +2,7 @@
 
 ## Architectural style
 
-**Modular monolith** (ADR-001). One backend codebase and binary, one PostgreSQL database with logical schemas, run as two processes: the API and the background worker.
+**Modular monolith** (ADR-001). One backend codebase and container image (entry points `cmd/api` and `cmd/worker`), one PostgreSQL database with logical schemas, run as two processes: the API and the background worker.
 
 Do not split into microservices unless operational scale or independent team ownership later justifies it.
 
@@ -21,7 +21,7 @@ Go REST API  ------------------------------  PostgreSQL
   +---- Storage adapter --> S3-compatible        |
   |      object storage (private bucket)         |
   |      signed URLs returned to browsers        v
-  |                                     Background Worker (same binary)
+  |                                     Background Worker (same codebase)
   |                                       |            |
   |                                       v            v
   |                                 Media processing  AI provider adapter (extension)
@@ -29,6 +29,8 @@ Go REST API  ------------------------------  PostgreSQL
 ```
 
 Environments: local (Docker Compose), **staging** (invited testers only, access gate, no indexing, separate data and credentials) and production.
+
+The browser talks to a single origin: the Vite dev server proxies `/api` and the health endpoints locally; a reverse proxy serves the SPA and the API under one origin on staging and production. No CORS is needed; the D-04 cookie/CSRF choice assumes same-origin.
 
 ## Backend modules (MVP)
 

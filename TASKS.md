@@ -49,6 +49,7 @@ Task IDs are stable. Suffixes `a`/`b` mark tasks split across slices (approved 2
 - Docker Compose starts PostgreSQL and a local S3-compatible storage service.
 - Environment example files without secrets; configuration documented.
 - Health checks for local dependencies; documented commands start API, worker and frontend.
+- Finalises the PostgreSQL version and local database setup (D-17).
 
 ### PQ-004 — Quality gates
 **Status:** TODO
@@ -66,6 +67,7 @@ Task IDs are stable. Suffixes `a`/`b` mark tasks split across slices (approved 2
 - Error envelope with stable codes; migration tool wired; logical schemas created empty.
 - OpenAPI skeleton with generated Go and TypeScript types (per D-05).
 - `/healthz` and `/readyz`; feature-flag lookup (`platform.feature_flags`); allowlisted-serializer convention documented.
+- Extends PQ-002's minimal health endpoint, configuration and logging; decides router, DB access and migration tools (D-17).
 
 ---
 
@@ -91,6 +93,7 @@ Task IDs are stable. Suffixes `a`/`b` mark tasks split across slices (approved 2
 - Storage interface (put, get, delete, presign) against the local S3-compatible service; private bucket; opaque keys never logged.
 - Time-bucketed presigning (B = 3600 s, L = 7200 s, signing time = bucket start) and 5-minute owner URLs; cache headers per ADR-023.
 - **Provider compatibility checklist** implemented as an automated test suite and run against the local service now and the chosen provider in PQ-054a: past signing time accepted; byte-identical URLs; read-after-delete consistency; `Cache-Control` honoured; disabling a key invalidates its URLs; upload size enforcement option.
+- Local S3-compatible service chosen after the compatibility checks (D-17).
 
 ### PQ-010a — Identity core
 **Status:** TODO

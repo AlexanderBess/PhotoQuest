@@ -100,7 +100,7 @@ Until S5 is complete and the pilot gate passed:
 - An access gate protects the whole site (e.g. HTTP basic auth or an IP allowlist at the reverse proxy [A]), because public photo and place pages are anonymous by design.
 
 **No search-engine indexing**
-- `X-Robots-Tag: noindex, nofollow` on every response, `robots.txt` disallow-all, `<meta name="robots" content="noindex">` in the SPA shell. Verified by a test request. The access gate is the real protection.
+- `X-Robots-Tag: noindex, nofollow` on every response, `robots.txt` disallow-all, `<meta name="robots" content="noindex, nofollow">` in the SPA shell. Verified by a test request. The access gate is the real protection.
 
 **Separation**
 - Separate database, bucket, credentials and secrets from production. No data is copied between staging and production in either direction.

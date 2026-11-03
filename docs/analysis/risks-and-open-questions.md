@@ -32,7 +32,7 @@ All ADRs ADR-001 … ADR-025 are Accepted (decision record Revision 4, 2026-11-0
 
 | ID | Decision | Blocks | Needed by | Options | [R] Recommendation |
 |---|---|---|---|---|---|
-| D-17 | Toolchain versions, package manager, Go router / DB access / migration tool, frontend libraries | PQ-002 | S0 | — | Propose in the PQ-002 plan, checked against current releases |
+| D-17 | Toolchain versions, package manager, Go router / DB access / migration tool, frontend libraries | PQ-002 | S0 | — | Partly decided 2026-11-03: Go 1.27, Node 26 LTS, pnpm, Task, TypeScript 6.0, Vue 3.5, Vite 8, Vue I18n. Router, DB access and migrations → PQ-005; local S3 → PQ-007; PostgreSQL version → PQ-003 |
 | D-05 | OpenAPI workflow | PQ-005 | S0 | Spec-first + generated types · code-first | Spec-first; generate Go interfaces and TS types |
 | D-03 | Storage provider; upload size enforcement (delivery decided) | PQ-007 checks, PQ-020a, PQ-054a | S1 | Any S3-compatible provider passing the PQ-007 checks; presigned PUT vs POST policy vs proxied upload | Choose with hosting (D-11) |
 | D-04 | Authentication mechanism, CSRF approach | PQ-010a | S1 | Server-side sessions + HTTP-only cookie · JWT access/refresh | Server-side sessions |
