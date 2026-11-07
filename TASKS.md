@@ -33,7 +33,7 @@ Task IDs are stable. Suffixes `a`/`b` mark tasks split across slices (approved 2
 ## S0 — Walking skeleton
 
 ### PQ-002 — Create project skeleton
-**Status:** TODO — **first implementation task**
+**Status:** DONE (2026-11-08) — per `docs/analysis/pq-002-implementation-plan.md` (Revision 5), checks run on Windows; the owner re-runs section 7.2 to confirm. SIGTERM handling is verified in Linux CI (PQ-004).
 **Blocking decisions:** D-17 (resolved inside this task's plan)
 **Acceptance criteria:**
 - Plan proposes toolchain versions, package manager, Go router/DB-access/migration tools and frontend libraries (router, Pinia, i18n, test tools) for approval before scaffolding.

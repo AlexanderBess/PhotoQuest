@@ -1,0 +1,102 @@
+version: "3"
+
+vars:
+  GOLANGCI_LINT_VERSION: "2.15.0"
+
+tasks:
+  dev:api:
+    desc: Run the API on http://127.0.0.1:8080
+    dir: backend
+    cmds:
+      - go run ./cmd/api
+
+  dev:worker:
+    desc: Run the background worker
+    dir: backend
+    cmds:
+      - go run ./cmd/worker
+
+  dev:web:
+    desc: Run the Vite dev server on http://localhost:5173
+    dir: frontend
+    cmds:
+      - pnpm dev
+
+  test:
+    desc: Run backend and frontend tests
+    cmds:
+      - task: test:go
+      - task: test:web
+
+  test:go:
+    dir: backend
+    cmds:
+      - go test ./...
+
+  test:web:
+    dir: frontend
+    cmds:
+      - pnpm test
+
+  lint:
+    desc: Check the golangci-lint version, then lint backend and frontend
+    cmds:
+      - task: lint:go-version
+      - task: lint:go
+      - task: lint:web
+
+  lint:go-version:
+    silent: true
+    cmds:
+      - |
+        actual="$(golangci-lint version)"
+        case "$actual" in
+          *"version {{.GOLANGCI_LINT_VERSION}} "*) ;;
+          *)
+            echo "golangci-lint {{.GOLANGCI_LINT_VERSION}} is required, found: $actual"
+            exit 1
+            ;;
+        esac
+
+  lint:go:
+    dir: backend
+    cmds:
+      - golangci-lint config verify --config .golangci.yml
+      - golangci-lint run --config .golangci.yml ./...
+
+  lint:web:
+    dir: frontend
+    cmds:
+      - pnpm lint
+
+  fmt:
+    desc: Format backend and frontend code
+    cmds:
+      - task: fmt:go
+      - task: fmt:web
+
+  fmt:go:
+    dir: backend
+    cmds:
+      - golangci-lint fmt --config .golangci.yml
+
+  fmt:web:
+    dir: frontend
+    cmds:
+      - pnpm format
+
+  build:
+    desc: Build the backend binaries and the frontend bundle
+    cmds:
+      - task: build:go
+      - task: build:web
+
+  build:go:
+    dir: backend
+    cmds:
+      - go build -o bin/ ./cmd/...
+
+  build:web:
+    dir: frontend
+    cmds:
+      - pnpm build

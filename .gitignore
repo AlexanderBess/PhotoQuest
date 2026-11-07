@@ -1,0 +1,21 @@
+# Environment files (patterns without a slash apply in every directory)
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+backend/bin/
+
+# Test output
+coverage/
+
+# Tool caches
+*.tsbuildinfo
+.eslintcache
+
+# IDE
+.idea/

@@ -1,0 +1,5 @@
+# pnpm 11+ reads its settings from this file, not from .npmrc.
+engineStrict: true
+saveExact: true
+allowBuilds:
+  esbuild: false # esbuild runs from its prebuilt platform package; no install script is needed

@@ -54,7 +54,30 @@ photoquest/
 
 ## Development status
 
-This repository is a specification starter pack. No application code exists yet. Analysis and documentation are approved (decision record: `docs/analysis/decision-review-2026-11-03.md`, Revision 4). Work proceeds in vertical slices S0–S5; the next task is **PQ-002** in `TASKS.md`. Open decisions are tracked in `docs/analysis/risks-and-open-questions.md`.
+The project skeleton (PQ-002) exists: a Go API and worker with a root-level `/healthz`, and a Russian, i18n-ready Vue shell. There are no product features yet. Analysis and documentation are approved (decision record: `docs/analysis/decision-review-2026-11-03.md`, Revision 4). Work proceeds in vertical slices S0–S5; the next task is **PQ-003** in `TASKS.md`. Open decisions are tracked in `docs/analysis/risks-and-open-questions.md`.
+
+## Local startup
+
+Install the tools listed in `docs/development/setup.md` (Go, Node.js, pnpm, Task, golangci-lint). No database or containers are needed yet.
+
+One-time setup, from the repository root:
+
+```powershell
+git config core.autocrlf false
+cd frontend; pnpm install --frozen-lockfile; cd ..
+```
+
+Then run each process in its own terminal, from the repository root:
+
+```powershell
+task dev:api      # API on http://127.0.0.1:8080
+task dev:worker   # worker process
+task dev:web      # Vite dev server on http://localhost:5173, proxies /api and /healthz to the API
+```
+
+Open http://localhost:5173/ for the shell; `http://127.0.0.1:8080/healthz` returns `{"status":"ok"}`. Press Ctrl+C in a terminal to stop its process.
+
+Other root commands: `task test`, `task lint`, `task fmt`, `task build`.
 
 ## Principles
 
