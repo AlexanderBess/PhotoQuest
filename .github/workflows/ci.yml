@@ -1,0 +1,178 @@
+# Quality gates (PQ-004). Every step runs a `task` command that also works
+# locally (`task check` runs them all). Any failing step fails its job, and
+# the final `ci` job fails unless every job succeeded: mark only `ci` as the
+# required status check. No deployment here (staging deploy is PQ-054a).
+#
+# Third-party code: only GitHub-owned actions, pinned to full commit SHAs
+# (Dependabot updates the SHA and the version comment). Task and golangci-lint
+# are downloaded from their releases and verified against pinned SHA-256
+# values in .github/scripts/install-tools.sh.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GOTOOLCHAIN: local # never switch Go toolchains silently; tools:verify checks the version
+
+jobs:
+  backend:
+    name: backend (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod # uses the toolchain line (go1.27.3)
+          cache-dependency-path: backend/go.mod
+
+      - name: Install Task and golangci-lint
+        run: bash .github/scripts/install-tools.sh task golangci-lint
+
+      - name: Verify tool versions
+        run: task tools:verify:go
+
+      - name: Format
+        run: task fmt:check:go
+
+      - name: Lint
+        run: task lint:go
+
+      - name: Build
+        run: task build:go
+
+      # -race needs cgo, which the Linux runner provides. The SIGTERM tests
+      # (cmd/*/signal_unix_test.go) run only on Linux.
+      - name: Test
+        run: task test:go GO_TEST_FLAGS="${{ runner.os == 'Linux' && '-race -count=1' || '-count=1' }}"
+
+  frontend:
+    name: frontend (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false # pnpm is cached explicitly below
+
+      - name: Install pnpm (version from packageManager)
+        run: npm install -g "$(node -p "require('./frontend/package.json').packageManager")"
+
+      - name: Install Task
+        run: bash .github/scripts/install-tools.sh task
+
+      - name: Verify tool versions
+        run: task tools:verify:web
+
+      - name: Locate the pnpm store
+        id: pnpm-store
+        working-directory: frontend
+        run: echo "path=$(pnpm store path --silent)" >>"$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('frontend/package.json', 'frontend/pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Format
+        run: task fmt:check:web
+
+      - name: Lint
+        run: task lint:web
+
+      - name: Type check
+        run: task typecheck
+
+      - name: i18n check
+        run: task i18n:check
+
+      - name: Test
+        run: task test:web
+
+      - name: Build
+        run: task build:web
+
+  vulnerabilities:
+    uses: ./.github/workflows/vulnerabilities.yml
+
+  repository:
+    name: repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Task
+        run: bash .github/scripts/install-tools.sh task
+
+      - name: Verify Task version
+        run: task tools:verify:task
+
+      - name: Validate compose.yaml
+        run: task deps:config
+
+      - name: Line endings
+        run: task check:eol
+
+  ci:
+    name: ci
+    if: ${{ always() }}
+    needs: [backend, frontend, vulnerabilities, repository]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every job to succeed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              echo "::error::a required job did not succeed ($result)"
+              exit 1
+            fi
+          done

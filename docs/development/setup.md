@@ -10,13 +10,13 @@ This document will be completed as the toolchain is selected and implemented in 
 | Go | 1.27.3 | `backend/go.mod` (`go 1.27`, `toolchain go1.27.3`) | https://go.dev/dl/ |
 | Node.js | 26.13.0 (LTS) | `.node-version`; `engines.node` in `frontend/package.json` (`>=26.13.0 <27`) | `nvm install 26.13.0`, `nvm use 26.13.0`, or https://nodejs.org/dist/v26.13.0/ |
 | pnpm | 12.15.0 | `packageManager` in `frontend/package.json` | `npm install -g pnpm@12.15.0` |
-| Task (go-task) | 3.54.0 or newer v3 | — | https://github.com/go-task/task/releases |
+| Task (go-task) | 3.54.0 (exact) | `REQUIRED_TASK_VERSION` in `Taskfile.yml` | https://github.com/go-task/task/releases |
 | golangci-lint | 2.15.0 (built with go1.27.0) | `GOLANGCI_LINT_VERSION` in `Taskfile.yml` | Official binary with the checksum-verifying script in `docs/analysis/pq-002-implementation-plan.md`, section 2.1; `go install` is not supported upstream |
 | Docker Desktop | 4.98.0 or newer (verified with Engine 29.9.2, Compose v5.6.1) | — (container images are pinned in `compose.yaml`) | Per-user install with the WSL 2 backend: https://docs.docker.com/desktop/setup/install/windows-install/ |
 
-- The `go` directive is the minimum Go version the module requires; the `toolchain` line names the suggested toolchain for this main module. With the default `GOTOOLCHAIN=auto`, Go 1.21 or newer downloads and switches to it when the local toolchain is older. The CI Go version is pinned separately in PQ-004.
+- The `go` directive is the minimum Go version the module requires; the `toolchain` line names the suggested toolchain for this main module. With the default `GOTOOLCHAIN=auto`, Go 1.21 or newer downloads and switches to it when the local toolchain is older. CI installs exactly the `toolchain` version and sets `GOTOOLCHAIN=local`, so it never switches silently.
 - Node 25+ no longer bundles Corepack, so pnpm is installed separately. pnpm refuses to install on a Node version outside `engines.node` (`engineStrict`).
-- `task lint` compares `golangci-lint version` with `GOLANGCI_LINT_VERSION` first and stops on a mismatch.
+- `task tools:verify` compares every installed tool with the version pinned in the repository (Go with the `toolchain` line, Node.js with `.node-version`, pnpm with `packageManager`, Task with `REQUIRED_TASK_VERSION`, golangci-lint with `GOLANGCI_LINT_VERSION`) and fails on any mismatch. CI runs it first in every job. `task lint` also checks the golangci-lint version first.
 - Docker Desktop requires Windows 10 22H2 (build 19045) or Windows 11 23H2 (build 22631) or newer, hardware virtualization enabled in the BIOS/UEFI (SVM on AMD, VT-x on Intel) and WSL 2.1.5 or newer (`wsl --install --no-distribution` in an elevated terminal). The Docker VM takes about half of the RAM by default; it can be limited in `%USERPROFILE%\.wslconfig`.
 
 ## One-time setup
@@ -114,8 +114,107 @@ Available from the repository root:
 | `task lint` | golangci-lint version check, `golangci-lint config verify` and `run` (in `backend/`), `pnpm lint`. `config verify` downloads its schema, so it needs network access |
 | `task fmt` | `golangci-lint fmt` and `pnpm format` |
 | `task build` | Backend binaries in `backend/bin/` and the frontend bundle in `frontend/dist/` |
+| `task check` | **Every quality gate CI runs**, in order: `tools:verify`, `fmt:check`, `lint`, `typecheck`, `i18n:check`, `test`, `build`, `vuln`, `deps:config`, `check:eol`. Run it before opening a pull request |
+| `task tools:verify` | Fail unless the installed tools match the pinned versions |
+| `task fmt:check` | Fail if a Go file (`golangci-lint fmt --diff`) or a frontend file (`prettier --check`) is not formatted |
+| `task typecheck` | `vue-tsc --build` |
+| `task i18n:check` | Missing message keys, locale parity and raw Cyrillic strings (see Quality gates) |
+| `task vuln` | `govulncheck` (backend) and `pnpm audit` (frontend); needs network access |
+| `task deps:config` | Validate `compose.yaml` with `backend/.env.example` (ignores a local `backend/.env`); starts nothing |
+| `task check:eol` | Fail if a file is committed with CRLF line endings |
 
-Available from `frontend/`: `pnpm dev`, `build`, `preview`, `typecheck`, `lint`, `format`, `format:check`, `test`.
+Available from `frontend/`: `pnpm dev`, `build`, `preview`, `typecheck`, `lint`, `format`, `format:check`, `test`, `i18n:check`.
+
+`task test:go GO_TEST_FLAGS=-race` passes extra flags to `go test` (CI uses `-race` on Linux; the race detector needs cgo and a C compiler).
+
+## Quality gates (PQ-004)
+
+| Gate | Backend | Frontend |
+| --- | --- | --- |
+| Tool versions | `tools:verify:go` | `tools:verify:web` |
+| Formatting | `golangci-lint fmt --diff` (gofmt, goimports) | Prettier |
+| Lint | golangci-lint 2.15.0 (`backend/.golangci.yml`) | ESLint, incl. `vue/no-bare-strings-in-template` |
+| Types | compiler | `vue-tsc --build` |
+| i18n | — | `scripts/check-i18n.ts` |
+| Tests | `go test` (`-race` on Linux); SIGTERM/SIGINT tests on Linux | Vitest |
+| Build | `go build` | `vite build` |
+| Vulnerabilities | govulncheck v1.9.0 | `pnpm audit` |
+| Repository | `compose.yaml` validation, no CRLF in the index | |
+
+**i18n check** (`pnpm i18n:check`, ADR-024). It fails when:
+- a key passed as a string literal to `t`, `$t`, `te`, `$te`, `tm`, `$tm` or `<i18n-t keypath>` does not exist in `ru` (the file name is the first key segment: `common.json` → `common.…`);
+- a key is not a string literal. Mark a deliberate dynamic key with a comment containing `i18n-dynamic-key` and a reason on the same line;
+- another registered locale lacks keys of `ru` or has extra ones (plural forms may differ per language and are not compared);
+- Cyrillic text appears in a string literal in `.ts` files or `<script>` blocks, or anywhere in a `<template>` outside HTML comments.
+
+Keys that are never used literally are printed as warnings. `*.spec.ts` files are not scanned (tests use missing keys on purpose). Bare Latin text in templates is caught by ESLint's `vue/no-bare-strings-in-template`; Latin string literals in scripts are not detected.
+
+**SIGTERM.** `backend/cmd/api/signal_unix_test.go` and `backend/cmd/worker/signal_unix_test.go` re-run the test binary as the real process, send SIGTERM and SIGINT and expect exit code 0 and the shutdown log lines. They build only on Unix (`//go:build unix`), so they run in Linux CI and are skipped on Windows.
+
+## Continuous integration
+
+GitHub Actions, `.github/workflows/`:
+
+| Workflow | Trigger | Jobs |
+| --- | --- | --- |
+| `ci.yml` | pull requests to `main`, pushes to `main`, manual | `backend` and `frontend` on `ubuntu-24.04` **and** `windows-2025`; `vulnerabilities` (calls `vulnerabilities.yml`); `repository` (Linux); `ci` |
+| `vulnerabilities.yml` | called by `ci.yml`; weekly (Mondays 03:00 UTC); manual | govulncheck and `pnpm audit` on Linux |
+
+- **`ci` is the only required status check.** It runs after all other jobs and fails unless every one succeeded.
+- Every step runs a `task` command, so a CI failure can be reproduced locally with the same command.
+- Tools in CI: Go from `actions/setup-go` (`go-version-file: backend/go.mod`, i.e. the `toolchain` line) with `GOTOOLCHAIN=local`; Node.js from `actions/setup-node` (`.node-version`); pnpm via `npm install -g` with the exact `packageManager` value; Task 3.54.0 and golangci-lint 2.15.0 downloaded by `.github/scripts/install-tools.sh`, which checks each archive against a pinned SHA-256 and stops on a mismatch. govulncheck runs through `go run …@v1.9.0` (verified by the Go checksum database).
+- Actions are GitHub-owned only (`actions/checkout` v7.0.1, `actions/setup-go` v7.0.0, `actions/setup-node` v7.1.0, `actions/cache` v6.1.0), pinned to full commit SHAs with the version in a comment.
+- Workflow token: `contents: read`; `actions/checkout` does not keep credentials. No secrets are used.
+- Caches: Go modules and build cache (setup-go, keyed on `backend/go.mod`); the pnpm store (`actions/cache`, keyed on OS and `frontend/package.json` + `pnpm-lock.yaml`).
+- CI has no `backend/.env`; `Taskfile.yml` ignores the missing file and tests set their own variables.
+- No path filters (they leave required checks pending). No deployment (staging deploy: PQ-054a).
+- The `windows-2025` jobs catch breakage on the development OS, notably in Dependabot pull requests that are merged without a local run. Vulnerability scans, `compose.yaml` validation and the line-ending check are OS-independent and run on Linux only.
+
+## Vulnerability scanning
+
+- **Backend:** govulncheck v1.9.0 (`GOVULNCHECK_VERSION` in `Taskfile.yml`) reports vulnerabilities in modules and the Go standard library that the code can actually reach. A new Go security release therefore turns CI red until the toolchain is bumped.
+- **Frontend:** `pnpm audit` over production **and** development dependencies; any severity fails.
+- Accepted findings are listed in `frontend/pnpm-workspace.yaml` (`auditConfig.ignoreGhsas`) and here, each with a reason and a review date. Remove an entry as soon as a fixed version is available.
+
+| Advisory | Package (path) | Severity | Why accepted | Review by |
+| --- | --- | --- | --- | --- |
+| GHSA-83rm-6c8r-g728 | `@intlify/shared` 10.0.8 (`@intlify/unplugin-vue-i18n` → `@intlify/vue-i18n-extensions`) | high | Build-time only; the app bundle uses `@intlify/shared` 11.4.16 (`pnpm audit --prod` is clean). No patched 10.x | 2026-12-07 [A] |
+| GHSA-3g3m-2fjr-6pw4 | `glob` (`@vue/test-utils` → `js-beautify`) | moderate | Tests only; the fix needs glob 14 (major) under js-beautify | 2026-12-07 [A] |
+| GHSA-g3hv-75wg-m249 | `minimatch` (ESLint) | moderate | Lint only, patterns come from our own configuration; the fix needs minimatch 11 (major) | 2026-12-07 [A] |
+
+## Dependabot
+
+`.github/dependabot.yml` proposes weekly updates (Mondays) with a 14-day cooldown, so proposed versions are at least two weeks old:
+
+- `github-actions` — one grouped pull request (SHA and version comment);
+- `npm` in `frontend/` — minor and patch updates grouped; **TypeScript ≥ 7 ignored** (vue-tsc does not support it yet, OD-10); `@types/node` ≥ 27 ignored (follows Node.js 26);
+- `gomod` in `backend/` — inactive until PQ-005 adds modules;
+- `docker-compose` — images in `compose.yaml`; PostgreSQL ≥ 19 ignored (major version is a decision, D-17). The first proposal must update the tag **and** the digest; if it does not, remove this entry.
+
+Dependabot pull requests run the full CI, including the Windows jobs.
+
+## Updating pinned tools
+
+Dependabot does not update the toolchain. To bump a tool, change every place listed and run `task check`:
+
+| Tool | Change |
+| --- | --- |
+| Go | `toolchain` in `backend/go.mod`; check that golangci-lint supports it |
+| Node.js | `.node-version`, `engines.node` in `frontend/package.json` |
+| pnpm | `packageManager` in `frontend/package.json` |
+| Task | `REQUIRED_TASK_VERSION` in `Taskfile.yml`; `TASK_VERSION` and both SHA-256 values in `.github/scripts/install-tools.sh` |
+| golangci-lint | `GOLANGCI_LINT_VERSION` in `Taskfile.yml`; version and both SHA-256 values in `.github/scripts/install-tools.sh` |
+| govulncheck | `GOVULNCHECK_VERSION` in `Taskfile.yml` |
+
+Take SHA-256 values from the release's official checksums file (exact file-name match). `task tools:verify` fails in CI if the versions drift apart.
+
+## GitHub repository settings (owner)
+
+Configured by the owner in the GitHub web interface (the repository is public):
+
+1. **Ruleset for `main`** (Settings → Rules → Rulesets): target the default branch; require a pull request before merging; require status checks to pass — add `ci`, and require branches to be up to date; block force pushes; restrict deletions. Changes reach `main` only through pull requests.
+2. **Actions** (Settings → Actions → General): allow only actions created by GitHub; require actions to be pinned to a full-length commit SHA; fork pull request workflows: require approval for all external contributors; workflow permissions: read repository contents; do not allow GitHub Actions to create or approve pull requests.
+3. **Security** (Settings → Advanced Security): Dependabot alerts and Dependabot security updates on; secret scanning and push protection on.
 
 Connect to the local database: `docker compose --env-file backend/.env exec postgres psql -U photoquest -d photoquest`.
 

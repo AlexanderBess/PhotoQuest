@@ -3,3 +3,16 @@ engineStrict: true
 saveExact: true
 allowBuilds:
   esbuild: false # esbuild runs from its prebuilt platform package; no install script is needed
+
+# Accepted `pnpm audit` findings (PQ-004). Each entry needs a reason and a review
+# date; the full list with justification is in docs/development/setup.md
+# ("Vulnerability scanning"). Review by 2026-12-07 [A].
+auditConfig:
+  ignoreGhsas:
+    # @intlify/shared 10.0.8 via @intlify/unplugin-vue-i18n (build-time only; the
+    # app bundle uses vue-i18n 11). No patched 10.x release.
+    - GHSA-83rm-6c8r-g728
+    # glob via @vue/test-utils > js-beautify (tests only). Fix needs glob 14 (major).
+    - GHSA-3g3m-2fjr-6pw4
+    # minimatch via ESLint (lint only, patterns are ours). Fix needs minimatch 11 (major).
+    - GHSA-g3hv-75wg-m249
