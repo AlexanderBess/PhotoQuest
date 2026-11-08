@@ -1,6 +1,6 @@
 # PQ-004 Quality Gates — Implementation Plan
 
-**Status:** approved by the owner on 2026-11-09 and implemented the same day; waiting for the first GitHub Actions run (section 6). Roles as in PQ-002 and PQ-003: the implementing Claude Code session writes files and runs checks on the owner's Windows computer; the owner does all Git operations.
+**Status:** approved by the owner on 2026-11-09, implemented and verified on GitHub the same day (sections 4 and 6). Roles as in PQ-002 and PQ-003: the implementing Claude Code session writes files and runs checks on the owner's Windows computer; the owner does all Git operations.
 
 ## 1. Baseline
 
@@ -74,6 +74,18 @@ Implementation notes:
 | 5 | YAML of workflows, Dependabot and Taskfile | Parsed and formatted by Prettier. **actionlint was not run** (running its container was not permitted in the session); GitHub validates workflows on the first push |
 | 6 | Working tree after all proofs | Unchanged apart from the PQ-004 files |
 
+**On GitHub (2026-11-09):**
+
+| # | Check | Result |
+| --- | --- | --- |
+| G1 | First run in PR AlexanderBess/PhotoQuest#1 | `startup_failure`: the repository allowed only actions owned by AlexanderBess. Fixed by the owner (Settings → Actions → "Allow actions created by GitHub"); no workflow change |
+| G2 | Re-run in PR #1 (run 42516624970) | All green: backend Linux 49 s / Windows 81 s, frontend Linux 24 s / Windows 69 s, vulnerabilities 41 s, repository 6 s, `ci` |
+| G3 | Draft PR #2 `ci-failure-proof`, commit 1 (failing Go test, missing i18n key, audit exception removed, `PQ_DB_USER` removed from `.env.example`), run 42517630865 | Every job red at the intended step: backend Test (both OS), frontend i18n check (both OS), vulnerabilities pnpm audit, repository Validate compose.yaml; `ci` red |
+| G4 | PR #2 commit 2 (`REQUIRED_TASK_VERSION` 3.53.1 while CI installs 3.54.0), run 42517945900 | Every job red at "Verify tool versions" / "Verify Task version"; `ci` red |
+| G5 | Ruleset for `main` | Active rules (API): deletion, non_fast_forward, pull_request (0 approvals), required_status_checks `ci` (strict). PR #2 shows "Merging is blocked". PR #2 closed unmerged; branch deleted |
+
+G4 showed that `pnpm audit` still ran after the version check had failed (`if: !cancelled()`). Fixed: it now also requires the version check to have succeeded (`steps.verify.outcome == 'success'`).
+
 **Failure proofs** — each made one temporary change, ran one gate and was undone; every gate exited non-zero:
 
 | Gate | Temporary change |
@@ -100,19 +112,18 @@ Implementation notes:
 
 ## 5. Known limitations
 
-- **Not yet run on GitHub.** The workflows have not executed; the first pull request is the real test (section 6).
 - **Windows jobs are slower** (setup and `pnpm install`), so pull requests wait for them.
 - **i18n check limits:** keys are found with patterns, not a full parser; Latin string literals in scripts are not detected; unused keys are warnings only.
 - **Dependabot:** the `docker-compose` tag-plus-digest behaviour and pnpm 12's lockfile (`lockfileVersion: '9.0'`, starts with a YAML document marker) are unconfirmed until its first run.
 - **govulncheck covers the standard library:** a new Go security release turns CI red until the toolchain is bumped (intended).
 - **Accepted advisories** must be reviewed by 2026-12-07 [A].
 
-## 6. Owner steps
+## 6. Owner steps (done 2026-11-09, except where noted)
 
 1. Commit PQ-004 on a branch, push it and open a pull request to `main`. Expected: all jobs green, including `backend (windows-2025)` and `frontend (windows-2025)`.
 2. Configure GitHub (`setup.md`, "GitHub repository settings"): ruleset for `main` with the required check `ci`; Actions restrictions; Dependabot alerts and security updates; secret scanning and push protection.
 3. **CI failure proof:** on a throwaway branch from the PQ-004 branch, add one failure per job (failing Go test, missing i18n key, an advisory removed from the exception list, a variable removed from `backend/.env.example`), push it and open a draft pull request. Expected: every job and `ci` red, merge blocked by the ruleset. Then change `REQUIRED_TASK_VERSION` to another value and push: `Verify tool versions` fails in every job. Close the pull request and delete the branch.
-4. Run `Vulnerabilities` once manually (Actions → Vulnerabilities → Run workflow).
-5. After Dependabot's first run, check the `docker-compose` proposal (tag and digest) and that the npm update works with the pnpm 12 lockfile.
+4. Optional, not done: run `Vulnerabilities` once manually (Actions → Vulnerabilities → Run workflow) after merging. The weekly schedule covers it otherwise.
+5. Open: after Dependabot's first run, check the `docker-compose` proposal (tag and digest) and that the npm update works with the pnpm 12 lockfile.
 
-PQ-004 is marked DONE after steps 1–3 succeed.
+Steps 1–3 succeeded; PQ-004 is DONE.

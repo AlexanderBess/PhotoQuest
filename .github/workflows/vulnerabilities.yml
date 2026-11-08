@@ -45,6 +45,7 @@ jobs:
         run: bash .github/scripts/install-tools.sh task
 
       - name: Verify tool versions
+        id: verify
         run: |
           task tools:verify:go-toolchain
           task tools:verify:web
@@ -52,6 +53,8 @@ jobs:
       - name: govulncheck (backend)
         run: task vuln:go
 
+      # Runs even if govulncheck failed, so both reports are visible; skipped
+      # when the tool versions are wrong.
       - name: pnpm audit (frontend)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.verify.outcome == 'success' }}
         run: task vuln:web
