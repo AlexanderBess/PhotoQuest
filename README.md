@@ -54,7 +54,7 @@ photoquest/
 
 ## Development status
 
-The project skeleton (PQ-002) exists: a Go API and worker with a root-level `/healthz`, and a Russian, i18n-ready Vue shell. The local development environment (PQ-003) runs PostgreSQL 18 and a provisional local S3-compatible service in Docker Compose. Quality gates (PQ-004) run in GitHub Actions on Linux and Windows for every pull request. There are no product features yet. Analysis and documentation are approved (decision record: `docs/analysis/decision-review-2026-11-03.md`, Revision 4). Work proceeds in vertical slices S0–S5; **PQ-004** (quality gates) waits for its first GitHub Actions run; the next task is **PQ-005** in `TASKS.md`. Open decisions are tracked in `docs/analysis/risks-and-open-questions.md`.
+The project skeleton (PQ-002) exists: a Go API and worker with a root-level `/healthz`, and a Russian, i18n-ready Vue shell. The local development environment (PQ-003) runs PostgreSQL 18 and a provisional local S3-compatible service in Docker Compose. Quality gates (PQ-004) run in GitHub Actions on Linux and Windows for every pull request. There are no product features yet. Analysis and documentation are approved (decision record: `docs/analysis/decision-review-2026-11-03.md`, Revision 4). Work proceeds in vertical slices S0–S5; the next task is **PQ-005** in `TASKS.md`. Open decisions are tracked in `docs/analysis/risks-and-open-questions.md`.
 
 ## Local startup
 
