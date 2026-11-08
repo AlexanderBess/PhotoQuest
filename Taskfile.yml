@@ -4,7 +4,7 @@ vars:
   # Pinned tool versions. CI installs the same versions; `task tools:verify`
   # fails when the installed tools differ (docs/development/setup.md).
   GOLANGCI_LINT_VERSION: "2.15.0"
-  REQUIRED_TASK_VERSION: "3.54.0"
+  REQUIRED_TASK_VERSION: "3.53.1" # deliberate mismatch: PQ-004 CI proof (branch ci-failure-proof only)
   GOVULNCHECK_VERSION: "v1.9.0"
   # Extra flags for `go test`; CI passes -race on Linux.
   GO_TEST_FLAGS: ""
