@@ -33,7 +33,7 @@ Task IDs are stable. Suffixes `a`/`b` mark tasks split across slices (approved 2
 ## S0 — Walking skeleton
 
 ### PQ-002 — Create project skeleton
-**Status:** DONE (2026-11-08) — per `docs/analysis/pq-002-implementation-plan.md` (Revision 5), checks run on Windows; the owner re-runs section 7.2 to confirm. SIGTERM handling is verified in Linux CI (PQ-004).
+**Status:** DONE (2026-11-08) — per `docs/analysis/pq-002-implementation-plan.md` (Revision 5), checks run on Windows; the owner re-runs section 7.2 to confirm. SIGTERM handling is covered by Linux-only tests added in PQ-004 (`backend/cmd/*/signal_unix_test.go`), run in CI.
 **Blocking decisions:** D-17 (resolved inside this task's plan)
 **Acceptance criteria:**
 - Plan proposes toolchain versions, package manager, Go router/DB-access/migration tools and frontend libraries (router, Pinia, i18n, test tools) for approval before scaffolding.
@@ -52,7 +52,7 @@ Task IDs are stable. Suffixes `a`/`b` mark tasks split across slices (approved 2
 - Finalises the PostgreSQL version and local database setup (D-17).
 
 ### PQ-004 — Quality gates
-**Status:** TODO
+**Status:** IN PROGRESS (2026-11-09) — implemented per `docs/analysis/pq-004-implementation-plan.md`: GitHub Actions CI on `ubuntu-24.04` and `windows-2025` with a single required check `ci`; `task check` runs the same gates locally; i18n check `frontend/scripts/check-i18n.ts`; govulncheck v1.9.0 and `pnpm audit` (3 dev-only advisories accepted until 2026-12-07); Dependabot; SIGTERM/SIGINT tests for API and worker. All gates and 20 failure cases verified locally (Windows; backend tests and SIGTERM in a Linux container). **Done when** the first GitHub Actions run on a pull request is green, a deliberate-failure branch turns `ci` red, and the `main` ruleset is configured (owner).
 **Acceptance criteria:**
 - Formatting, lint and test commands documented; CI runs frontend and backend checks; failures fail the pipeline.
 - i18n check (missing keys; raw template strings where practical).

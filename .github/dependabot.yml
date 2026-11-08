@@ -1,0 +1,60 @@
+# Dependabot version updates (PQ-004). The cooldown keeps proposals at least
+# 14 days old, matching the project's rule for new versions. Go, Node.js,
+# pnpm, Task, golangci-lint and govulncheck are bumped by hand (see
+# docs/development/setup.md, "Updating pinned tools").
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 5
+    groups:
+      frontend-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Vue's type checker (vue-tsc / Volar) does not support TypeScript 7 yet
+      # (PQ-002 plan, OD-10). Remove once it does.
+      - dependency-name: typescript
+        versions: [">=7"]
+      # Node.js types follow the pinned Node.js major (26, .node-version).
+      - dependency-name: "@types/node"
+        versions: [">=27"]
+
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+
+  # compose.yaml pins images by tag and digest. Check that the first proposal
+  # updates both; if not, remove this entry (setup.md, "Dependabot").
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    ignore:
+      # PostgreSQL 18 is the project's major version (D-17); a major upgrade
+      # is a decision, not a routine update.
+      - dependency-name: postgres
+        versions: [">=19"]

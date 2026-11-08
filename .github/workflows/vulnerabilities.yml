@@ -1,0 +1,57 @@
+# Dependency vulnerability scanning (PQ-004): govulncheck for the backend,
+# pnpm audit for the frontend. Called by ci.yml on every push and pull request,
+# and run weekly on its own so new advisories surface without a commit.
+name: Vulnerabilities
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays 03:00 UTC
+
+permissions:
+  contents: read
+
+env:
+  GOTOOLCHAIN: local # never switch Go toolchains silently; tools:verify checks the version
+
+jobs:
+  scan:
+    name: scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.mod
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+
+      - name: Install pnpm (version from packageManager)
+        run: npm install -g "$(node -p "require('./frontend/package.json').packageManager")"
+
+      - name: Install Task
+        run: bash .github/scripts/install-tools.sh task
+
+      - name: Verify tool versions
+        run: |
+          task tools:verify:go-toolchain
+          task tools:verify:web
+
+      - name: govulncheck (backend)
+        run: task vuln:go
+
+      - name: pnpm audit (frontend)
+        if: ${{ !cancelled() }}
+        run: task vuln:web

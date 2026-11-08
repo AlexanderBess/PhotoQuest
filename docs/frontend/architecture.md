@@ -62,7 +62,7 @@ Auth-required actions on public pages (save, report, publish) open sign-in and r
 
 - Russian (`ru`) is the default and only shipped locale in the pilot; fallback locale `ru`.
 - Locale messages live in `shared/i18n/locales/<locale>/` split by area (common, feed, explore, publish, shooting-details, learning, errors, admin).
-- No hard-coded user-facing strings in components. From PQ-002 the ESLint rule `vue/no-bare-strings-in-template` catches bare strings in templates. Missing-key validation and CI enforcement of both checks are separate and are added in PQ-004.
+- No hard-coded user-facing strings in components. The ESLint rule `vue/no-bare-strings-in-template` (PQ-002) catches bare strings in templates; `pnpm i18n:check` (PQ-004, `frontend/scripts/check-i18n.ts`) fails on missing message keys, non-literal keys without an `i18n-dynamic-key` marker, keys that differ between registered locales, and Cyrillic text in script string literals or templates. Both run in CI on every pull request (`docs/development/setup.md`, "Quality gates").
 - Use CLDR plural rules via `Intl.PluralRules` (Russian: one / few / many / other; fractions use `other`), e.g. "1 фотография / 2 фотографии / 5 фотографий / 1,5 фотографии".
 - Dates, numbers and units via `Intl` with the active locale, exposed through Vue I18n's datetime/number formats (`d`, `n`) and shared formatters. Shooting Details formatting (f/2.8, 1/250 s, ISO 400, focal length) lives in one formatter in `entities/shooting-details`, with localisable unit labels.
 - API error `code`s map to localised messages; the frontend never shows raw server messages.

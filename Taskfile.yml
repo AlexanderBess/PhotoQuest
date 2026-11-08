@@ -1,7 +1,13 @@
 version: "3"
 
 vars:
+  # Pinned tool versions. CI installs the same versions; `task tools:verify`
+  # fails when the installed tools differ (docs/development/setup.md).
   GOLANGCI_LINT_VERSION: "2.15.0"
+  REQUIRED_TASK_VERSION: "3.54.0"
+  GOVULNCHECK_VERSION: "v1.9.0"
+  # Extra flags for `go test`; CI passes -race on Linux.
+  GO_TEST_FLAGS: ""
   COMPOSE: docker compose --env-file backend/.env
 
 # Local configuration (copy backend/.env.example). A missing file is ignored;
@@ -42,6 +48,23 @@ tasks:
     cmds:
       - "{{.COMPOSE}} down --volumes"
 
+  deps:config:
+    desc: Validate compose.yaml with the committed backend/.env.example (starts nothing)
+    cmds:
+      # Unset the variables that `dotenv` loaded from a local backend/.env, so
+      # only backend/.env.example is validated (shell variables would win).
+      - |
+        for file in backend/.env backend/.env.example; do
+          if [ -f "$file" ]; then
+            while IFS='=' read -r key _; do
+              case "$key" in
+                PQ_*) unset "$key" ;;
+              esac
+            done < "$file"
+          fi
+        done
+        docker compose --env-file backend/.env.example config --quiet
+
   dev:api:
     desc: Run the API on http://127.0.0.1:8080
     dir: backend
@@ -69,7 +92,7 @@ tasks:
   test:go:
     dir: backend
     cmds:
-      - go test ./...
+      - go test {{.GO_TEST_FLAGS}} ./...
 
   test:web:
     dir: frontend
@@ -138,3 +161,164 @@ tasks:
     dir: frontend
     cmds:
       - pnpm build
+
+  # ---------------------------------------------------------------------------
+  # Quality gates (PQ-004). CI runs the same tasks; see .github/workflows/.
+  # ---------------------------------------------------------------------------
+
+  check:
+    desc: Run every quality gate that CI runs (tools, format, lint, types, i18n, tests, build, vulnerabilities, repository)
+    cmds:
+      - task: tools:verify
+      - task: fmt:check
+      - task: lint
+      - task: typecheck
+      - task: i18n:check
+      - task: test
+      - task: build
+      - task: vuln
+      - task: deps:config
+      - task: check:eol
+
+  tools:verify:
+    desc: Fail unless the installed tools match the versions pinned in the repository
+    cmds:
+      - task: tools:verify:go
+      - task: tools:verify:web
+
+  tools:verify:go:
+    silent: true
+    cmds:
+      - task: tools:verify:task
+      - task: tools:verify:go-toolchain
+      - task: lint:go-version
+
+  tools:verify:go-toolchain:
+    silent: true
+    cmds:
+      - |
+        want=""
+        while read -r key value _; do
+          if [ "$key" = "toolchain" ]; then want="$value"; fi
+        done < backend/go.mod
+        cr="$(printf '\r')"
+        got="$(cd backend && go env GOVERSION)"
+        got="${got%"$cr"}"
+        if [ -z "$want" ] || [ "$got" != "$want" ]; then
+          echo "Go $want is required (toolchain line in backend/go.mod), found: $got"
+          exit 1
+        fi
+        echo "Go $got"
+
+  # On Windows, Node.js ends its output with CRLF; command substitution strips
+  # only the LF, so the version checks below remove a trailing CR explicitly.
+  tools:verify:web:
+    silent: true
+    cmds:
+      - task: tools:verify:task
+      - |
+        cr="$(printf '\r')"
+        read -r want < .node-version
+        got="$(node --version)"
+        got="${got%"$cr"}"
+        got="${got#v}"
+        if [ "$got" != "$want" ]; then
+          echo "Node.js $want is required (.node-version), found: $got"
+          exit 1
+        fi
+        echo "Node.js $got"
+      - |
+        cr="$(printf '\r')"
+        want="$(node -p "require('./frontend/package.json').packageManager")"
+        want="${want%"$cr"}"
+        got="$(cd frontend && pnpm --version)"
+        got="pnpm@${got%"$cr"}"
+        if [ "$got" != "$want" ]; then
+          echo "$want is required (packageManager in frontend/package.json), found: $got"
+          exit 1
+        fi
+        echo "$got"
+
+  tools:verify:task:
+    silent: true
+    cmds:
+      - |
+        cr="$(printf '\r')"
+        got="$(task --version)"
+        got="${got%"$cr"}"
+        got="${got#v}"
+        if [ "$got" != "{{.REQUIRED_TASK_VERSION}}" ]; then
+          echo "Task {{.REQUIRED_TASK_VERSION}} is required (REQUIRED_TASK_VERSION in Taskfile.yml), found: $got"
+          exit 1
+        fi
+        echo "Task $got"
+
+  fmt:check:
+    desc: Fail if any backend or frontend file is not formatted
+    cmds:
+      - task: fmt:check:go
+      - task: fmt:check:web
+
+  fmt:check:go:
+    dir: backend
+    cmds:
+      - |
+        diff="$(golangci-lint fmt --diff --config .golangci.yml)"
+        if [ -n "$diff" ]; then
+          echo "$diff"
+          echo "Go files are not formatted: run task fmt"
+          exit 1
+        fi
+
+  fmt:check:web:
+    dir: frontend
+    cmds:
+      - pnpm format:check
+
+  typecheck:
+    desc: Type-check the frontend (vue-tsc)
+    dir: frontend
+    cmds:
+      - pnpm typecheck
+
+  i18n:check:
+    desc: Check i18n keys, locale parity and raw Cyrillic strings in the frontend
+    dir: frontend
+    cmds:
+      - pnpm i18n:check
+
+  vuln:
+    desc: Scan backend and frontend dependencies for known vulnerabilities
+    cmds:
+      - task: vuln:go
+      - task: vuln:web
+
+  vuln:go:
+    dir: backend
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}} ./...
+
+  vuln:web:
+    dir: frontend
+    cmds:
+      # Any severity, production and development dependencies. Accepted
+      # exceptions: auditConfig.ignoreGhsas in frontend/pnpm-workspace.yaml.
+      - pnpm audit
+
+  check:eol:
+    desc: Fail if a file is committed with CRLF line endings
+    silent: true
+    cmds:
+      - |
+        git ls-files --eol | {
+          status=0
+          while read -r line; do
+            case "$line" in
+              i/crlf* | i/mixed*)
+                echo "committed with CRLF line endings: $line"
+                status=1
+                ;;
+            esac
+          done
+          exit $status
+        }
