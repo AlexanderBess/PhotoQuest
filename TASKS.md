@@ -44,7 +44,7 @@ Task IDs are stable. Suffixes `a`/`b` mark tasks split across slices (approved 2
 - Root README explains local startup. No product-domain features.
 
 ### PQ-003 — Local development environment
-**Status:** TODO
+**Status:** DONE (2026-11-09) — per `docs/analysis/pq-003-implementation-plan.md`; PostgreSQL 18.6 (D-17 / OD-17); provisional local S3 SeaweedFS 4.52 (OD-13 open until PQ-007); checks run on Windows 11 with Docker Desktop 4.98.0.
 **Acceptance criteria:**
 - Docker Compose starts PostgreSQL and a local S3-compatible storage service.
 - Environment example files without secrets; configuration documented.
@@ -93,7 +93,7 @@ Task IDs are stable. Suffixes `a`/`b` mark tasks split across slices (approved 2
 - Storage interface (put, get, delete, presign) against the local S3-compatible service; private bucket; opaque keys never logged.
 - Time-bucketed presigning (B = 3600 s, L = 7200 s, signing time = bucket start) and 5-minute owner URLs; cache headers per ADR-023.
 - **Provider compatibility checklist** implemented as an automated test suite and run against the local service now and the chosen provider in PQ-054a: past signing time accepted; byte-identical URLs; read-after-delete consistency; `Cache-Control` honoured; disabling a key invalidates its URLs; upload size enforcement option.
-- Local S3-compatible service chosen after the compatibility checks (D-17).
+- Local S3-compatible service chosen after the compatibility checks (D-17, OD-13): PQ-003 added SeaweedFS 4.52 as a **provisional** service; confirm it or replace it (Garage is the first alternative). Unverified for SeaweedFS: `Cache-Control` overrides and key disabling.
 
 ### PQ-010a — Identity core
 **Status:** TODO

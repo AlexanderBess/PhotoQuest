@@ -54,17 +54,24 @@ photoquest/
 
 ## Development status
 
-The project skeleton (PQ-002) exists: a Go API and worker with a root-level `/healthz`, and a Russian, i18n-ready Vue shell. There are no product features yet. Analysis and documentation are approved (decision record: `docs/analysis/decision-review-2026-11-03.md`, Revision 4). Work proceeds in vertical slices S0–S5; the next task is **PQ-003** in `TASKS.md`. Open decisions are tracked in `docs/analysis/risks-and-open-questions.md`.
+The project skeleton (PQ-002) exists: a Go API and worker with a root-level `/healthz`, and a Russian, i18n-ready Vue shell. The local development environment (PQ-003) runs PostgreSQL 18 and a provisional local S3-compatible service in Docker Compose. There are no product features yet. Analysis and documentation are approved (decision record: `docs/analysis/decision-review-2026-11-03.md`, Revision 4). Work proceeds in vertical slices S0–S5; the next task is **PQ-004** in `TASKS.md`. Open decisions are tracked in `docs/analysis/risks-and-open-questions.md`.
 
 ## Local startup
 
-Install the tools listed in `docs/development/setup.md` (Go, Node.js, pnpm, Task, golangci-lint). No database or containers are needed yet.
+Install the tools listed in `docs/development/setup.md` (Go, Node.js, pnpm, Task, golangci-lint, Docker Desktop).
 
 One-time setup, from the repository root:
 
 ```powershell
 git config core.autocrlf false
+Copy-Item backend/.env.example backend/.env
 cd frontend; pnpm install --frozen-lockfile; cd ..
+```
+
+Start the local dependencies (PostgreSQL on `127.0.0.1:5432`, local S3 on `127.0.0.1:8333`):
+
+```powershell
+task deps:up      # returns when both services are healthy
 ```
 
 Then run each process in its own terminal, from the repository root:
@@ -76,6 +83,8 @@ task dev:web      # Vite dev server on http://localhost:5173, proxies /api and /
 ```
 
 Open http://localhost:5173/ for the shell; `http://127.0.0.1:8080/healthz` returns `{"status":"ok"}`. Press Ctrl+C in a terminal to stop its process.
+
+Stop the dependencies with `task deps:down` (data is kept); `task deps:status`, `task deps:logs` and `task deps:reset` (deletes all local data) are also available.
 
 Other root commands: `task test`, `task lint`, `task fmt`, `task build`.
 

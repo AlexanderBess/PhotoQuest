@@ -2,8 +2,46 @@ version: "3"
 
 vars:
   GOLANGCI_LINT_VERSION: "2.15.0"
+  COMPOSE: docker compose --env-file backend/.env
+
+# Local configuration (copy backend/.env.example). A missing file is ignored;
+# variables already set in the shell take precedence.
+dotenv: ["backend/.env"]
 
 tasks:
+  deps:up:
+    desc: Start PostgreSQL and the local S3 service and wait until both are healthy
+    preconditions: &env-file
+      - sh: test -f backend/.env
+        msg: "backend/.env is missing: run `Copy-Item backend/.env.example backend/.env`"
+    cmds:
+      - "{{.COMPOSE}} up -d --wait --wait-timeout 120"
+
+  deps:down:
+    desc: Stop the local dependencies (data is kept)
+    preconditions: *env-file
+    cmds:
+      - "{{.COMPOSE}} down"
+
+  deps:status:
+    desc: Show the local dependencies and their health
+    preconditions: *env-file
+    cmds:
+      - "{{.COMPOSE}} ps --all"
+
+  deps:logs:
+    desc: Follow the logs of the local dependencies
+    preconditions: *env-file
+    cmds:
+      - "{{.COMPOSE}} logs -f"
+
+  deps:reset:
+    desc: Delete all local PostgreSQL and object-storage data
+    prompt: This permanently deletes the local database and bucket contents. Continue?
+    preconditions: *env-file
+    cmds:
+      - "{{.COMPOSE}} down --volumes"
+
   dev:api:
     desc: Run the API on http://127.0.0.1:8080
     dir: backend
